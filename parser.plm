@@ -5,15 +5,16 @@ type ParserResult<A> = (Result<A, str>, String)
 type Parser<A> { Parser(fn(String): ParserResult<A>) }
 
 fn run_parser<A>(parser: Parser<A>, inp: String): ParserResult<A> {
-  return switch parser {
-    case Parser(f) => f(inp)
+  switch parser {
+    case Parser(f) { return f(inp) }
   }
 }
 
-fn parse<A>(parser: Parser<A>, inp: String): Option<A> => switch run_parser(parser, inp) {
-  case (Ok(value), ?) => Some(value)
-  case (?, ?) => None
-}
+fn parse<A>(parser: Parser<A>, inp: String): Option<A> => 
+  switch run_parser(parser, inp) {
+    case (Ok(value), ?) => Some(value)
+    case (?, ?) => None
+  }
 
 extend traversable<Parser> {
   fn map<A, B>(self: Parser<A>, f: fn(A): B): Parser<B> => 
