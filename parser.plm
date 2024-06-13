@@ -118,11 +118,11 @@ fn try<A>(p: Parser<A>): Parser<A> =>
 fn none_of(chars: String): Parser<char> => 
   satisfy(fn (c) => not (chars.elem(c)))
 
-extend<A extends monoidal> boolean_algebra<Parser<A>> {
+extend<A extends default> boolean_algebra<Parser<A>> {
   fn not(self: Parser<A>): Parser<A> => 
     Parser(fn (input) => switch run_parser(self, input) {
       case (Ok(_), _) => (Error("Unexpected input"), input)
-      case (Error(_), _) => (Ok(empty()), input)
+      case (Error(_), _) => (Ok(default()), input)
     })
 
   fn and(self: Parser<A>, other: Parser<A>): Parser<A> =>
