@@ -1,4 +1,4 @@
-native ("native", "js") "combinator-ffi" {
+native ("native", "js") "mod:thomasvergne/plume-combinator/library/combinator-ffi" {
   is_alphabetic(c: char): bool
   is_alphanumeric(c: char): bool
   is_digit(c: char): bool
