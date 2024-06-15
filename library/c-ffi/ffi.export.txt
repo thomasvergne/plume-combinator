@@ -1,0 +1,8 @@
+is_alphabetic
+is_alphanumeric
+is_digit
+is_whitespace
+ffi_to_int
+str_split
+str_index
+explode
