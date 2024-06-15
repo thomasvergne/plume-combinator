@@ -1,0 +1,5 @@
+require "parser"
+
+res = identifier.parse("foo".explode())
+
+println(res)
