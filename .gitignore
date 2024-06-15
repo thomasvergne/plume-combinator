@@ -1,3 +1,9 @@
 main.js
 parser.js
 char.js
+
+.xmake
+build
+
+*.plmc
+*.bin
