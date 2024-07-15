@@ -10,6 +10,9 @@ fn run_parser<A>(parser: Parser<A>, inp: String): ParserResult<A> {
   }
 }
 
+fn parse_error<A>(err: str): Parser<A> => 
+  Parser(fn (inp) => (Error(err), inp))
+
 fn parse<A>(parser: Parser<A>, inp: String): Option<A> => 
   switch run_parser(parser, inp) {
     case (Ok(value), ?) => Some(value)
