@@ -1,10 +1,9 @@
 require "library/char"
 
-type String = list<char>
-type ParserResult<A> = (Result<A, str>, String)
-type Parser<A> { Parser(fn(String): ParserResult<A>) }
+type ParserResult<A> = (Result<A, str>, str)
+type Parser<A> { Parser(fn(str): ParserResult<A>) }
 
-fn run_parser<A>(parser: Parser<A>, inp: String): ParserResult<A> {
+fn run_parser<A>(parser: Parser<A>, inp: str): ParserResult<A> {
   switch parser {
     case Parser(f) { return f(inp) }
   }
@@ -13,7 +12,7 @@ fn run_parser<A>(parser: Parser<A>, inp: String): ParserResult<A> {
 fn parse_error<A>(err: str): Parser<A> => 
   Parser(fn (inp) => (Error(err), inp))
 
-fn parse<A>(parser: Parser<A>, inp: String): Option<A> => 
+fn parse<A>(parser: Parser<A>, inp: str): Option<A> => 
   switch run_parser(parser, inp) {
     case (Ok(value), ?) => Some(value)
     case (?, ?) => None
@@ -23,7 +22,10 @@ extend traversable<Parser> {
   fn map<A, B>(self: Parser<A>, f: fn(A): B): Parser<B> => 
     Parser(fn (input) => switch self {
       case Parser(parser) => switch parser(input) {
-        case (result, rest) => (result.map(f), rest)
+        case (result, rest) => switch result {
+          case Ok(value) => (Ok(f(value)), rest)
+          case Error(err) => (Error(err), rest)
+        }
       }
     })
 }
@@ -69,7 +71,7 @@ fn many<A extends equality>(p: Parser<A>): Parser<[A]> =>
 fn many1<A extends equality>(p: Parser<A>): Parser<[A]> =>
   p.bind(fn (x) => many(p).map(fn (xs) => [x] + xs))
 
-fn string(s: String): Parser<String> =>
+fn string(s: str): Parser<str> =>
   switch s {
     case [] => pure([])
     case [c, ..cs] => 
@@ -85,9 +87,9 @@ spaces: Parser<[char]> = many(space)
 newline: Parser<char> = satisfy(fn (c) => c == '\n' or c == '\r')
 
 digit: Parser<char> = satisfy(is_digit)
-digits: Parser<String> = many1(digit)
+digits: Parser<str> = many1(digit)
 
-identifier: Parser<String> = 
+identifier: Parser<str> = 
   satisfy(is_alphabetic).bind(fn(c) =>
     many(satisfy(is_alphanumeric)).map(fn(cs) => [c] + cs)
   )
@@ -118,7 +120,7 @@ fn try<A>(p: Parser<A>): Parser<A> =>
     case (Error(err), _) => (Error(err), input)
   })
 
-fn none_of(chars: String): Parser<char> => 
+fn none_of(chars: str): Parser<char> => 
   satisfy(fn (c) => not (chars.elem(c)))
 
 extend<A extends default> boolean_algebra<Parser<A>> {
