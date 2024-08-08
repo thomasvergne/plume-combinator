@@ -1,5 +1,5 @@
 require "parser"
 
-res = identifier.parse("foo".explode())
+res = identifier.parse("foo")
 
 println(res)
