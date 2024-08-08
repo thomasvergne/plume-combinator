@@ -1,9 +1,12 @@
 main.js
 parser.js
 char.js
+test.js
 
 .xmake
 build
 
 *.plmc
 *.bin
+
+.vscode
