@@ -4,8 +4,10 @@ native ("native", "js") "combinator-ffi" {
   is_digit(c: char): bool
   is_whitespace(c: char): bool
   ffi_to_int(c: str): int
+  ffi_to_float(c: str): float
   str_split(s: str, c: str): [str]
   str_index(s: str, i: int): Option<char>
+  str_to_float(s: str): Option<float>
   explode(s: str): [char]
 }
 
@@ -13,5 +15,9 @@ fn to_int(c: str): int => ffi_to_int(c)
 
 fn implode(c: [char]): str => switch c {
   case [] => ""
-  case [x, ..xs] => x.to_str() + implode(xs)
+  case [x, ..xs] => x.show() + implode(xs)
+}
+
+extend convertible<str, float> {
+  fn convert(x) => str_to_float(x)
 }
