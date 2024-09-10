@@ -23,7 +23,10 @@ extend traversable<Parser> {
   fn map<A, B>(self: Parser<A>, f: fn(A): B): Parser<B> => 
     Parser(fn (input) => switch self {
       case Parser(parser) => switch parser(input) {
-        case (result, rest) => (result.map(f), rest)
+        case (result, rest) => switch result {
+          case Ok(value) => (Ok(f(value)), rest)
+          case Error(err) => (Error(err), rest)
+        }
       }
     })
 }
@@ -95,19 +98,19 @@ identifier: Parser<String> =
 fn lex<A>(p: Parser<A>): Parser<A> => 
   spaces >> p << spaces
 
-fn sepBy<A extends equality, B>(p: Parser<A>, sep: Parser<B>): Parser<[A]> =>
+fn sep_by<A extends equality, B>(p: Parser<A>, sep: Parser<B>): Parser<[A]> =>
   p.bind(fn(x) => 
     many(sep.and_then(p)).map(fn(xs) => [x] + xs)
   ) <|> pure([])
 
-fn sepBy1<A extends equality, B>(p: Parser<A>, sep: Parser<B>): Parser<[A]> =>
+fn sep_by_1<A extends equality, B>(p: Parser<A>, sep: Parser<B>): Parser<[A]> =>
   p.bind(fn(x) => 
     many(sep.and_then(p)).map(fn(xs) => [x] + xs)
   )
 
-fn manyTill<A extends equality, B>(p: Parser<A>, end: Parser<B>): Parser<[A]> =>
+fn many_till<A extends equality, B>(p: Parser<A>, end: Parser<B>): Parser<[A]> =>
   end.bind(fn (_) => pure([])) <|> p.bind(fn(x) => 
-    manyTill(p, end).map(fn(xs) => [x] + xs)
+    many_till(p, end).map(fn(xs) => [x] + xs)
   )
 
 anything = satisfy(fn (_) => true)
@@ -120,6 +123,9 @@ fn try<A>(p: Parser<A>): Parser<A> =>
 
 fn none_of(chars: String): Parser<char> => 
   satisfy(fn (c) => not (chars.elem(c)))
+
+fn one_of(chars: String): Parser<char> => 
+  satisfy(fn (c) => chars.elem(c))
 
 extend<A extends default> boolean_algebra<Parser<A>> {
   fn not(self: Parser<A>): Parser<A> => 
@@ -137,3 +143,36 @@ extend<A extends default> boolean_algebra<Parser<A>> {
 
 fn optional<A>(p: Parser<A>): Parser<Option<A>> => 
   p.map(Some) <|> pure(None)
+
+fn option<A>(p: Parser<A>, default: A): Parser<A> => 
+  p <|> pure(default)
+
+fn between<A, B, C>(p: Parser<A>, start: Parser<B>, end: Parser<C>): Parser<A> => 
+  start >> p << end
+
+interface<A> lazier<A> {
+  fn lazy(self: fn(): A): A
+}
+
+extend<A> lazier<Parser<A>> {
+  fn lazy(self: fn(): Parser<A>): Parser<A> => 
+    Parser(fn (input) => run_parser(self(), input))
+}
+
+fn choice<A>(parsers: [Parser<A>]): Parser<A> => 
+  switch parsers {
+    case [] => parse_error("No parsers provided")
+    case [p, ..ps] => p <|> choice(ps)
+  }
+
+fn many_count<A extends equality>(p: Parser<A>, i: int): Parser<list<A>> {
+  if i == 0 {
+    return pure([])
+  }
+
+  return p.bind(fn(res) => 
+    many_count(p, i - 1).bind(fn(ress) =>
+      pure([res] + ress)
+    )
+  )
+}
