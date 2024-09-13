@@ -1,3 +1,8 @@
+type Line = int
+type Start = int
+type End = int
+type Location { Located(Line, Start) } 
+
 native ("native", "js") "combinator-ffi" {
   is_alphabetic(c: char): bool
   is_alphanumeric(c: char): bool
@@ -20,4 +25,32 @@ fn implode(c: [char]): str => switch c {
 
 extend convertible<str, float> {
   fn convert(x) => str_to_float(x)
+}
+
+fn increase_line(loc: Location): Location => switch loc {
+  case Located(line, start) => Located(line + 1, 0)
+}
+
+fn increase_col(loc: Location): Location => switch loc {
+  case Located(line, col) => Located(line, col + 1)
+}
+
+fn reset_col(loc: Location): Location => switch loc {
+  case Located(line, col) => Located(line, 0)
+}
+
+fn reset_line(loc: Location): Location => switch loc {
+  case Located(line, col) => Located(0, col)
+}
+
+extend equality<Location> {
+  fn (==) (self: Location, other: Location): bool => switch (self, other) {
+    case (Located(a, b), Located(d, e)) => a == d and b == e
+  }
+}
+
+extend show<Location> {
+  fn show_prec(loc: Location, _) => switch loc {
+    case Located(a, b) => "Located($a, $b)"
+  }
 }
