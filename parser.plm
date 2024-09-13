@@ -1,31 +1,31 @@
 require "library/char"
 
 type String = list<char>
-type ParserResult<A> = (Result<A, str>, String)
-type Parser<A> { Parser(fn(String): ParserResult<A>) }
+type ParserResult<A> = (Result<A, str>, String, Location)
+type Parser<A> { Parser(fn(String, Location): ParserResult<A>) }
 
-fn run_parser<A>(parser: Parser<A>, inp: String): ParserResult<A> {
+fn run_parser<A>(parser: Parser<A>, inp: String, loc: Option<Location>): ParserResult<A> {
   switch parser {
-    case Parser(f) { return f(inp) }
+    case Parser(f) { return f(inp, loc.or_else(Located(0, 0, 0))) }
   }
 }
 
 fn parse_error<A>(err: str): Parser<A> => 
-  Parser(fn (inp) => (Error(err), inp))
+  Parser(fn (inp, loc) => (Error(err), inp, loc))
 
 fn parse<A>(parser: Parser<A>, inp: String): Option<A> => 
-  switch run_parser(parser, inp) {
+  switch run_parser(parser, inp, None) {
     case (Ok(value), ?) => Some(value)
     case (?, ?) => None
   }
 
 extend traversable<Parser> {
   fn map<A, B>(self: Parser<A>, f: fn(A): B): Parser<B> => 
-    Parser(fn (input) => switch self {
-      case Parser(parser) => switch parser(input) {
-        case (result, rest) => switch result {
-          case Ok(value) => (Ok(f(value)), rest)
-          case Error(err) => (Error(err), rest)
+    Parser(fn (input, loc1) => switch self {
+      case Parser(parser) => switch parser(input, loc1) {
+        case (result, rest, loc2) => switch result {
+          case Ok(value) => (Ok(f(value)), rest, loc2)
+          case Error(err) => (Error(err), rest, loc2)
         }
       }
     })
@@ -33,24 +33,24 @@ extend traversable<Parser> {
 
 extend monadic<Parser> {
   fn bind<A, B>(self: Parser<A>, f: fn(A): Parser<B>): Parser<B> => 
-    Parser(fn (input) => switch self.run_parser(input) {
-      case (Ok(value), rest) => f(value).run_parser(rest)
-      case (Error(err), rest) => (Error(err), rest)
+    Parser(fn (input, loc) => switch self.run_parser(input, Some(loc)) {
+      case (Ok(value), rest, loc2) => f(value).run_parser(rest, Some(loc2))
+      case (Error(err), rest, loc2) => (Error(err), rest, loc2)
     })
   
   fn pure<A>(value: A): Parser<A> => 
-    Parser(fn (input) => (Ok(value), input))
+    Parser(fn (input, loc) => (Ok(value), input, loc))
 }
 
 fn satisfy(predicate: fn(char): bool): Parser<char> => 
-  Parser(fn (inp) {
+  Parser(fn (inp, loc) {
     return switch inp {
-      case [] => (Error("Unexpected end of input"), [])
+      case [] => (Error("Unexpected end of input"), [], loc)
       case [c, ..rest] => {
         if predicate(c) {
-          return (Ok(c), rest)
+          return (Ok(c), rest, loc.increase_col())
         } else {
-          return (Error("Unexpected character $c"), inp)
+          return (Error("Unexpected character $c"), inp, loc)
         }
       }
     }
@@ -59,9 +59,9 @@ fn satisfy(predicate: fn(char): bool): Parser<char> =>
 infixl 6 <|>
 
 fn (<|>)<A>(x: Parser<A>, y: Parser<A>): Parser<A> => 
-  Parser(fn (input) => switch run_parser(x, input) {
-    case (Ok(value), rest) => (Ok(value), rest)
-    case (Error(_), _) => run_parser(y, input)
+  Parser(fn (input, loc) => switch run_parser(x, input, Some(loc)) {
+    case (Ok(value), rest, l) => (Ok(value), rest, l)
+    case (Error(_), _, ?) => run_parser(y, input, Some(loc))
   })
 
 fn many<A extends equality>(p: Parser<A>): Parser<[A]> =>
@@ -85,7 +85,11 @@ space: Parser<char> = satisfy(fn (c) => c == ' ')
 space1: Parser<[char]> = many1(space)
 spaces: Parser<[char]> = many(space)
 
-newline: Parser<char> = satisfy(fn (c) => c == '\n' or c == '\r')
+newline: Parser<char> = Parser(fn(inp, loc) => switch inp {
+  case ['\r', ..rest] => (Ok('\r'), rest, loc.increase_line().reset_col())
+  case ['\n', ..rest] => (Ok('\n'), rest, loc.increase_line().reset_col())
+  case _ => (Error("Expected newline"), inp, loc)
+})
 
 digit: Parser<char> = satisfy(is_digit)
 digits: Parser<String> = many1(digit)
@@ -116,9 +120,9 @@ fn many_till<A extends equality, B>(p: Parser<A>, end: Parser<B>): Parser<[A]> =
 anything = satisfy(fn (_) => true)
 
 fn try<A>(p: Parser<A>): Parser<A> => 
-  Parser(fn (input) => switch run_parser(p, input) {
-    case (Ok(value), rest) => (Ok(value), rest)
-    case (Error(err), _) => (Error(err), input)
+  Parser(fn (input, loc) => switch run_parser(p, input, Some(loc)) {
+    case (Ok(value), rest, loc) => (Ok(value), rest, loc)
+    case (Error(err), _, ?) => (Error(err), input, loc)
   })
 
 fn none_of(chars: String): Parser<char> => 
@@ -129,9 +133,9 @@ fn one_of(chars: String): Parser<char> =>
 
 extend<A extends default> boolean_algebra<Parser<A>> {
   fn not(self: Parser<A>): Parser<A> => 
-    Parser(fn (input) => switch run_parser(self, input) {
-      case (Ok(_), _) => (Error("Unexpected input"), input)
-      case (Error(_), _) => (Ok(default()), input)
+    Parser(fn (input, loc) => switch run_parser(self, input, Some(loc)) {
+      case (Ok(_), _, l) => (Error("Unexpected input"), input, l)
+      case (Error(_), _, loc) => (Ok(default()), input, loc)
     })
 
   fn and(self: Parser<A>, other: Parser<A>): Parser<A> =>
@@ -156,7 +160,7 @@ interface<A> lazier<A> {
 
 extend<A> lazier<Parser<A>> {
   fn lazy(self: fn(): Parser<A>): Parser<A> => 
-    Parser(fn (input) => run_parser(self(), input))
+    Parser(fn (input, loc) => run_parser(self(), input, Some(loc)))
 }
 
 fn choice<A>(parsers: [Parser<A>]): Parser<A> => 
