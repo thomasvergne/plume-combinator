@@ -1,5 +1,6 @@
 require "parser"
+require "library/char"
 
-res = identifier.parse("foo".explode())
-
-println(res)
+require "example/csv"
+require "example/brainfuck"
+require "example/json"
