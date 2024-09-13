@@ -1,0 +1,85 @@
+require "../library/char"
+require "../parser"
+
+type JSON {
+  Object(Map<str, JSON>),
+  Array(list<JSON>),
+  String(str),
+  Number(float),
+  Bool(bool),
+  Null
+}
+
+extend show<JSON> {
+  fn show_prec(json: JSON, _) => switch json {
+    case Object(m) => "{" + m.map(fn case (k, v) => k + ": " + show(v)).join_str(", ") + "}"
+    case Array(arr) => "[" + arr.map(show).join_str(", ") + "]"
+    case String(s) => "\"" + s + "\""
+    case Number(num) => num.show()
+    case Bool(b) => b.show()
+    case Null => "null"
+  }
+}
+
+extend equality<JSON> {
+  fn (==) (a, b) => switch (a, b) {
+    case (Object(a), Object(b)) => a == b
+    case (Array(a), Array(b)) => a == b
+    case (String(a), String(b)) => a == b
+    case (Number(a), Number(b)) => a == b
+    case (Bool(a), Bool(b)) => a == b
+    case (Null, Null) => true
+    case ? => false
+  }
+}
+
+string_literal = character('"') >> none_of(['"']).many().map(implode) << character('"')
+
+fn lexeme<A>(parser: Parser<A>): Parser<A> {
+  whitespace = (space <|> newline).many()
+
+  return parser.between(whitespace, whitespace)
+}
+
+fn parse_json(): Parser<JSON> {
+  parse_object_field = string_literal.lexeme()
+    >>= fn (key) => 
+      character(':') >> parse_json.lazy().lexeme()
+        >>= fn (value) => pure((key, value))
+  
+  parse_object = parse_object_field
+    .sep_by(character(',').lexeme())
+    .between(character('{'), character('}'))
+      >>= fn (fields) => pure(Object(fields))
+  
+  parse_array = parse_json
+    .lazy()
+    .sep_by(character(',').lexeme())
+    .between(character('['), character(']'))
+      >>= fn (arr) => pure(Array(arr))
+
+  parse_string = string_literal.map(String)
+
+  parse_number = satisfy(is_digit)
+    .many1()
+    .map(implode)
+    .map(ffi_to_float)
+      >>= fn (num) => pure(Number(num))
+
+  parse_bool = choice([
+    string("true".explode()) >> pure(Bool(true)),
+    string("false".explode()) >> pure(Bool(false))
+  ])
+
+  parse_null = string("null".explode()) >> pure(Null)
+
+  return choice([parse_object, parse_array, parse_string, parse_number, parse_bool, parse_null])
+}
+
+json_data = read_file("data/test.json")
+  .map(explode)
+  .or_else([])
+
+res = parse_json().parse(json_data)
+
+println(res)

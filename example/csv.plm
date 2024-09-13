@@ -1,0 +1,17 @@
+require "../parser"
+require "../library/char"
+
+csv_data = read_file("data/test.csv")
+  .map(explode)
+  .or_else([])
+
+line = none_of([',', '\n', '\r'])
+  .many()
+  .map(implode)
+  .sep_by(character(',').lex())
+
+res = line
+  .sep_by_1(newline.many1())
+  .parse(csv_data)
+
+println(res)

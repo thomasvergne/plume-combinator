@@ -1,0 +1,58 @@
+require "../library/char"
+require "../parser"
+
+type Instruction {
+  Increment,
+  Decrement,
+  MoveRight,
+  MoveLeft,
+  Print,
+  Read,
+  Loop(list<Instruction>)
+}
+
+extend show<Instruction> {
+  fn show_prec(instr: Instruction, _) => switch instr {
+    case Increment => "+"
+    case Decrement => "-"
+    case MoveRight => ">"
+    case MoveLeft => "<"
+    case Print => "."
+    case Read => ","
+    case Loop(instructions) => "[" + instructions.map(show).join_str("") + "]"
+  }
+}
+
+extend equality<Instruction> {
+  fn (==) (a, b) => switch (a, b) {
+    case (Increment, Increment) => true
+    case (Decrement, Decrement) => true
+    case (MoveRight, MoveRight) => true
+    case (MoveLeft, MoveLeft) => true
+    case (Print, Print) => true
+    case (Read, Read) => true
+    case (Loop(a1), Loop(a2)) => a1 == a2
+    case ? => false
+  }
+}
+
+declare parse_instruction: fn (): Parser<Instruction>
+
+fn parse_instruction(): Parser<Instruction> => 
+  choice([
+    character('+') >> pure(Increment),
+    character('-') >> pure(Decrement),
+    character('>') >> pure(MoveRight),
+    character('<') >> pure(MoveLeft),
+    character('.') >> pure(Print),
+    character(',') >> pure(Read),
+    character('[') >> parse_instruction.lazy().many().map(Loop) << character(']')
+  ])
+
+bf_data = read_file("data/hello-world.bf")
+  .map(explode)
+  .or_else([])
+
+res = parse_instruction().many().parse(bf_data)
+
+println(res.map(fn (x) => x.map(show).join_str("")))
