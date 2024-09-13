@@ -99,6 +99,8 @@ identifier: Parser<String> =
     many(satisfy(is_alphanumeric)).map(fn(cs) => [c] + cs)
   )
 
+location: Parser<Location> = Parser(fn(_, loc) => (Ok(loc), [], loc))
+
 fn lex<A>(p: Parser<A>): Parser<A> => 
   spaces >> p << spaces
 
