@@ -28,7 +28,7 @@ extend convertible<str, float> {
 }
 
 fn increase_line(loc: Location): Location => switch loc {
-  case Located(line, start) => Located(line + 1, 0)
+  case Located(line, start) => Located(line + 1, 1)
 }
 
 fn increase_col(loc: Location): Location => switch loc {
@@ -40,7 +40,7 @@ fn reset_col(loc: Location): Location => switch loc {
 }
 
 fn reset_line(loc: Location): Location => switch loc {
-  case Located(line, col) => Located(0, col)
+  case Located(line, col) => Located(1, col)
 }
 
 extend equality<Location> {
