@@ -6,7 +6,7 @@ type Parser<A> { Parser(fn(String, Location): ParserResult<A>) }
 
 fn run_parser<A>(parser: Parser<A>, inp: String, loc: Option<Location>): ParserResult<A> {
   switch parser {
-    case Parser(f) { return f(inp, loc.or_else(Located(0, 0, 0))) }
+    case Parser(f) { return f(inp, loc.or_else(Located(1, 1))) }
   }
 }
 
