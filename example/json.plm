@@ -12,8 +12,8 @@ type JSON {
 
 extend show<JSON> {
   fn show_prec(json: JSON, _) => switch json {
-    case Object(m) => "{" + m.map(fn case (k, v) => k + ": " + show(v)).join_str(", ") + "}"
-    case Array(arr) => "[" + arr.map(show).join_str(", ") + "]"
+    case Object(m) => "{" + m.map(fn case (k, v) => k + ": " + show(v)).String::join(", ") + "}"
+    case Array(arr) => "[" + arr.map(show).String::join(", ") + "]"
     case String(s) => "\"" + s + "\""
     case Number(num) => num.show()
     case Bool(b) => b.show()
@@ -42,30 +42,41 @@ fn lexeme<A>(parser: Parser<A>): Parser<A> {
 }
 
 fn parse_json(): Parser<JSON> {
-  parse_object_field = string_literal.lexeme()
-    >>= fn (key) => 
-      character(':') >> parse_json.lazy().lexeme()
-        >>= fn (value) => pure((key, value))
-  
-  parse_object = parse_object_field
-    .sep_by(character(',').lexeme())
-    .between(character('{'), character('}'))
-      >>= fn (fields) => pure(Object(fields))
-  
-  parse_array = parse_json
-    .lazy()
-    .sep_by(character(',').lexeme())
-    .between(character('['), character(']'))
-      >>= fn (arr) => pure(Array(arr))
+  fn parse_object_field(): Parser<(str, JSON)> {
+    key <- string_literal.lexeme()
+    value <- character(':') >> parse_json.lazy().lexeme()
 
-  parse_string = string_literal.map(String)
+    return pure((key, value))
+  }
 
-  parse_number = satisfy(is_digit)
-    .many1()
-    .map(implode)
-    .map(ffi_to_float)
-      >>= fn (num) => pure(Number(num))
+  fn parse_object(): Parser<JSON> {
+    fields <- parse_object_field()
+      .sep_by(character(',').lexeme())
+      .between(character('{'), character('}'))
 
+    return pure(Object(fields))
+  }
+
+  fn parse_array(): Parser<JSON> {
+    arr <- parse_json
+      .lazy()
+      .sep_by(character(',').lexeme())
+      .between(character('['), character(']'))
+
+    return pure(Array(arr))
+  }
+
+  fn parse_number(): Parser<JSON> {
+    num <- satisfy(is_digit).many1().map(implode)
+
+    return pure(Number(num.ffi_to_float()))
+  }
+
+  fn parse_string(): Parser<JSON> {
+    s <- string_literal
+    return pure(String(s))
+  }
+    
   parse_bool = choice([
     string("true".explode()) >> pure(Bool(true)),
     string("false".explode()) >> pure(Bool(false))
@@ -73,7 +84,7 @@ fn parse_json(): Parser<JSON> {
 
   parse_null = string("null".explode()) >> pure(Null)
 
-  return choice([parse_object, parse_array, parse_string, parse_number, parse_bool, parse_null])
+  return choice([parse_object(), parse_array(), parse_string(), parse_number(), parse_bool, parse_null])
 }
 
 json_data = read_file("data/test.json")

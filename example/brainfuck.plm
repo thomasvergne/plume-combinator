@@ -19,7 +19,7 @@ extend show<Instruction> {
     case MoveLeft => "<"
     case Print => "."
     case Read => ","
-    case Loop(instructions) => "[" + instructions.map(show).join_str("") + "]"
+    case Loop(instructions) => "[" + String::join(instructions.map(show), "") + "]"
   }
 }
 
@@ -55,4 +55,4 @@ bf_data = read_file("data/hello-world.bf")
 
 res = parse_instruction().many().parse(bf_data)
 
-println(res.map(fn (x) => x.map(show).join_str("")))
+println(res.map(fn (x: list<Instruction>) => String::join(x.map(show), "")))
