@@ -19,8 +19,8 @@ fn parse<A>(parser: Parser<A>, inp: String): Option<A> =>
     case (?, ?) => None
   }
 
-extend traversable<Parser> {
-  fn map<A, B>(self: Parser<A>, f: fn(A): B): Parser<B> => 
+extend<A> (self: Parser<A>) {
+  fn map<B>(f: fn(A): B): Parser<B> => 
     Parser(fn (input, loc1) => switch self {
       case Parser(parser) => switch parser(input, loc1) {
         case (result, rest, loc2) => switch result {
